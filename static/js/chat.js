@@ -19,6 +19,8 @@ $(function () {
 	w.On("chat", function (message) {
 		//appendMessage($("<div>" + message + "</div>"));
 		//hack render img
+		var json = JSON.parse(message);
+		console.log(json.From + ": " + json.MSG)
 		var x = Math.floor(Math.random() * 300);
 		var y = Math.floor(Math.random() * 100);
 		test1(x,y);
@@ -65,6 +67,7 @@ function test1() {
 
         id.data[3] = 255;
         var t0 = new Date().getTime();
+		var r = 255;
                 var g = 0;
                 var b = 0;
  

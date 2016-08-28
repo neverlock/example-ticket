@@ -11,12 +11,17 @@ type clientPage struct {
 	Host  string
 }
 
+type BookingAPI struct {
+	*iris.Context
+}
+
 func main() {
 	iris.Static("/js", "./static/js", 1)
 
 	iris.Get("/", func(ctx *iris.Context) {
 		ctx.Render("client.html", clientPage{"Client Page", ctx.HostString()})
 	})
+	iris.API("/booking", BookingAPI{})
 
 	// the path which the websocket client should listen/registed to ->
 	iris.Config.Websocket.Endpoint = "/my_endpoint"
@@ -37,7 +42,9 @@ func main() {
 
 			//send the message to the whole room,
 			//all connections are inside this room will receive this message
-			c.To(myChatRoom).Emit("chat", "From: "+c.ID()+": "+message)
+			//c.To(myChatRoom).Emit("chat", "From: "+c.ID()+": "+message)
+			js := fmt.Sprintf("{\"From\":\"%s\",\"MSG\":\"%s\"}", c.ID(), message)
+			c.To(myChatRoom).Emit("chat", js)
 		})
 
 		c.OnDisconnect(func() {
@@ -46,4 +53,8 @@ func main() {
 	})
 
 	iris.Listen(":8080")
+}
+
+func (u BookingAPI) Get() {
+	u.Write("Get from /booking")
 }
