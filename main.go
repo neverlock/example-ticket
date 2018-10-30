@@ -5,8 +5,12 @@ import (
 	"log"
 
 	"github.com/kataras/iris"
+	"github.com/kataras/iris/mvc"
+	"github.com/kataras/iris/websocket"
+
 	"github.com/neverlock/utility/random"
-	"golang.org/x/net/websocket"
+
+	wsx "golang.org/x/net/websocket"
 )
 
 /* Native messages no need to import the iris-ws.js to the ./templates.client.html
@@ -18,35 +22,38 @@ type clientPage struct {
 	Host  string
 }
 
-type BookingAPI struct {
-	*iris.Context
-}
-
 func main() {
+	app := iris.New()
 
-	iris.Static("/js", "./static/js", 1)
+	app.StaticWeb("/js", "./static/js")
 
-	iris.Get("/", func(ctx *iris.Context) {
-		ctx.Render("client.html", clientPage{"Client Page", ctx.HostString()})
+	app.Get("/", func(ctx iris.Context) {
+		ctx.View("client.html", clientPage{"Client Page", ctx.Host()})
 	})
-	iris.API("/booking", BookingAPI{})
+
+	// https://github.com/kataras/iris/tree/master/_examples/README.md#mvc
+	mvc.New(app.Party("/booking")).Handle(new(BookingController))
+
+	// https://github.com/kataras/iris/blob/master/_examples/README.md#websockets
+	ws := websocket.New(websocket.Config{
+		ReadBufferSize:  2048,
+		WriteBufferSize: 2048,
+	}) // get the websocket server
 
 	// the path which the websocket client should listen/registed to ->
-	iris.Config.Websocket.Endpoint = "/my_endpoint"
+	app.Any("/my_endpoint", ws.Handler())
 
-	ws := iris.Websocket // get the websocket server
-
-	ws.OnConnection(func(c iris.WebsocketConnection) {
+	ws.OnConnection(func(c websocket.Connection) {
 
 		c.OnMessage(func(data []byte) {
 			message := string(data)
-			//c.To(iris.Broadcast).EmitMessage([]byte("Message from: " + c.ID() + "-> " + message))
+			//c.To(websocket.Broadcast).EmitMessage([]byte("Message from: " + c.ID() + "-> " + message))
 			//c.EmitMessage([]byte("Me: " + message))
 			height := random.Int(1, 100)
 			width := random.Int(1, 300)
 
 			js := fmt.Sprintf("{\"From\":\"%s\",\"H\":%d,\"W\":%d,\"MSG\":\"%s\"}", c.ID(), height, width, message)
-			c.To(iris.Broadcast).EmitMessage([]byte(js))
+			c.To(websocket.Broadcast).EmitMessage([]byte(js))
 			c.EmitMessage([]byte(js))
 			//c.To(myChatRoom).Emit("chat", js)
 		})
@@ -56,14 +63,15 @@ func main() {
 		})
 	})
 
-	iris.Listen(":8080")
+	app.Run(iris.Addr(":8080"))
 }
 
-func (u BookingAPI) Get() {
-	u.Write("Get from /booking")
+type BookingController struct{}
+
+func (c *BookingController) Get() string {
 	origin := "http://104.238.149.36:8080/"
 	url := "ws://104.238.149.36:8080/my_endpoint"
-	ws, err := websocket.Dial(url, "", origin)
+	ws, err := wsx.Dial(url, "", origin)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -86,4 +94,6 @@ func (u BookingAPI) Get() {
 		log.Fatal(err)
 	}
 	fmt.Printf("Received: %s.\n", msg[:n])
+
+	return "Get from /booking"
 }
